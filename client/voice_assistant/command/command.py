@@ -1,8 +1,9 @@
 import logging
 from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage
 from langchain_core.tools import BaseTool
-from collections.abc import Callable
+from langgraph.prebuilt import create_react_agent
+from langgraph.checkpoint.memory import InMemorySaver
 from pathlib import Path
 import importlib
 
@@ -17,9 +18,9 @@ class OllamaCommandProcessor:
         :param model_name: The name of the Ollama model to use for command processing.
         """
         self.model = ChatOllama(model=model_name)
-        self._bind_tools()
+        self._create_agent()
 
-    def _discover_tools(self) -> list[Callable]:
+    def _discover_tools(self) -> list[BaseTool]:
         """
         Discover and return the tools available for command processing.
         This method can be extended to include more tools as needed.
@@ -44,12 +45,19 @@ class OllamaCommandProcessor:
 
         return discovered_tools.values()
     
-    def _bind_tools(self):
+    def _create_agent(self):
         """
         Bind the necessary tools to the Ollama model for command processing.
         This method can be extended to include more tools as needed.
         """
-        self.model = self.model.bind_tools(self._discover_tools())
+        tools = self._discover_tools()
+        checkpointer = InMemorySaver()
+        self.agent = create_react_agent(
+            model=self.model,
+            tools=tools,
+            checkpointer=checkpointer,
+            prompt="You are a helpful voice assistant/agent named 'Crumbot'. You have several tools that allow you to control the user's computer. If a user asks to do a task, respond with result of the task briefly. If they ask a question, then answer the question. If what they are saying doesn't make sense, respond with '<empty>', it was probably a false wakeword activation. Keep responses as brief as possible, and don't use markdown."  # ChatPromptTemplate can be used here if needed
+        )
 
     def process_prompt(self, prompt: str) -> str:
         """
@@ -59,29 +67,14 @@ class OllamaCommandProcessor:
         :return: A string indicating the result of the command execution.
         """
 
-        # TODO: use langgraph's create_react_agent and memory with InMemorySaver, as well as using a ChatPromptTemplate
-
         logger.info(f"Processing prompt.")
 
-        messages = [
-            SystemMessage(content="You are a helpful voice assistant/agent named 'Crumbot'. You have several tools that allow you to control the user's computer. If a user asks to do a task, respond with result of the task briefly. If they ask a question, then answer the question. Keep responses as brief as possible, and don't use any markdown."),
-            HumanMessage(prompt)
-        ]
-        
-        done = False
-
-        while not done:
-            ai_msg = self.model.invoke(messages, think=False)
-            messages.append(ai_msg)
-
-            for tool_call in ai_msg.tool_calls:
-                selected_tool = self.tools[tool_call["name"].lower()]
-                tool_msg = selected_tool.invoke(tool_call)
-                messages.append(tool_msg)
-
-            if not ai_msg.tool_calls:
-                done = True
+        config = {"configurable": {"thread_id": "default"}}
+        response = self.agent.invoke(
+            {"messages": [HumanMessage(content=prompt)]},
+            config=config
+        )
 
         logger.info(f"Done processing.")
 
-        return messages[-1].content
+        return response["messages"][-1].content
