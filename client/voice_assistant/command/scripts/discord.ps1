@@ -1,0 +1,1 @@
+& "$env:localappdata\Discord\Update.exe" --processStart "Discord.exe"
