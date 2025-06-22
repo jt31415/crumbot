@@ -15,3 +15,4 @@ def google_search(
 
     webbrowser.open(f"https://www.google.com/search?q={query}")
     logger.info(f"Searching for: {query}")
+    return True

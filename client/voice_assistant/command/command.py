@@ -1,14 +1,35 @@
 import logging
 from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.tools import BaseTool
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.errors import GraphRecursionError
+
 from pathlib import Path
 import importlib
+from typing import Iterator, Generator, Any
 
 logger = logging.getLogger(__name__)
 
+def strip_thinking(message: str) -> str:
+    """
+    Strip the thinking part from an LLM response.
+    
+    :param message: The message string to process.
+    :return: The processed message without thinking.
+    """
+
+    if "<think>" in message:
+        start = message.index("<think>")
+        if "</think>" not in message:
+            end = start + len("<think>")
+        else:
+            end = message.index("</think>") + len("</think>")
+            
+        return (message[:start] + message[end:]).strip()
+    
+    return message.strip()
 
 class OllamaCommandProcessor:
     def __init__(self, model_name: str):
@@ -52,14 +73,34 @@ class OllamaCommandProcessor:
         """
         tools = self._discover_tools()
         checkpointer = InMemorySaver()
+        prompt = open(Path(__file__).parent / "system_prompt").read()
+
         self.agent = create_react_agent(
             model=self.model,
             tools=tools,
             checkpointer=checkpointer,
-            prompt="You are a helpful voice assistant/agent named 'Crumbot'. You have several tools that allow you to control the user's computer. If a user asks to do a task, respond with result of the task briefly. If they ask a question, then answer the question. If what they are saying doesn't make sense, respond with '<empty>', it was probably a false wakeword activation. Keep responses as brief as possible, and don't use markdown."  # ChatPromptTemplate can be used here if needed
+            prompt=prompt
         )
 
-    def process_prompt(self, prompt: str) -> str:
+    def _agent_stream(self, it: Iterator[dict[str, Any]]) -> Generator[str, None, None]:
+        """
+        Process the stream of messages from the agent and yield the LLM's response.
+        
+        :param it: The stream of updates from the agent.
+        :return: A generator yielding the LLM's response.
+        """
+        try:
+            for update in it:
+                for key in update:
+                    if "messages" in update[key]:
+                        for message in update[key]["messages"]:
+                            if isinstance(message, AIMessage):
+                                yield strip_thinking(message.content)
+        except GraphRecursionError as e:
+            logger.error(f"Graph recursion error: {e}")
+            yield "An error occurred while processing the command. Please try again."
+
+    def process_prompt(self, prompt: str) -> Generator[str, None, None]:
         """
         Process the given prompt string to execute commands.
 
@@ -70,11 +111,10 @@ class OllamaCommandProcessor:
         logger.info(f"Processing prompt.")
 
         config = {"configurable": {"thread_id": "default"}}
-        response = self.agent.invoke(
+        response = self.agent.stream(
             {"messages": [HumanMessage(content=prompt)]},
-            config=config
+            config=config,
+            stream_mode="updates"
         )
 
-        logger.info(f"Done processing.")
-
-        return response["messages"][-1].content
+        yield from self._agent_stream(response)

@@ -3,10 +3,12 @@ from voice_assistant import display
 
 @tool
 def display_on():
-    """Turns on the display."""
+    """Turns on the display. Initially, the display is off, so this should be called if the user says, 'display'."""
     display.display_on()
+    return True
 
 @tool
 def display_off():
     """Turns off the display."""
     display.display_off()
+    return True

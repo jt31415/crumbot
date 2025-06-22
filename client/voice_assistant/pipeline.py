@@ -118,7 +118,10 @@ def _mic_callback(in_data, frame_count, time_info, status):
                     logger.info("Transcription: " + transcription)
 
                     response = command_processor.process_prompt(transcription)
-                    logger.info("Response: " + response)
+                    for chunk in response:
+                        logger.info("AI: " + chunk)
+
+                    logger.info("Done processing.")
             else:
                 # reset pause timer if speech is detected
                 pause_start_time = None
