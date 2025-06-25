@@ -42,16 +42,16 @@ def configure_logging():
         },
 
         "loggers": {
-            "voice_assistant": {
-                "handlers": ["console", "file", "error_file"],
-                "level": "INFO",
-                "propagate": False # Prevent propagation to root logger
-            }
+            # "voice_assistant": {
+            #     "handlers": ["console", "file", "error_file"],
+            #     "level": "DEBUG",
+            #     "propagate": False # Prevent propagation to root logger
+            # }
         },
 
         "root": {
-            "handlers": ["console"],
-            "level": "WARNING"
+            "handlers": ["console", "file", "error_file"],
+            "level": "DEBUG"
         }
     }
     logging.config.dictConfig(LOGGING_CONFIG)

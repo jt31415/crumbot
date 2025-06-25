@@ -2,7 +2,7 @@ import config
 config.configure_logging()
 
 import asyncio
-from voice_assistant.pipeline import run_mic
+from pipeline.pipeline import run_mic
 
 if __name__ == "__main__":
     try:

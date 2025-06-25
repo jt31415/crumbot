@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class OpenWakewordDetector:
     def __init__(self, model_path: str | Path, wakeword_threshold: float = 0.5, vad_threshold: float = 0.5):
-        self.model_path = str(model_path)
+        self.model_path = str(Path(__file__).parent / "models" / model_path)
         self.wakeword_threshold = wakeword_threshold
         self.vad_threshold = vad_threshold
         self._load_model()

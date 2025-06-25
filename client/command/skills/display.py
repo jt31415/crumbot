@@ -1,5 +1,5 @@
 from langchain_core.tools import tool
-from voice_assistant import display
+from utils import display
 
 @tool
 def display_on():

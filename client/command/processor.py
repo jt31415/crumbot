@@ -56,7 +56,7 @@ class OllamaCommandProcessor:
             if skill == "__init__.py":
                 continue
             
-            module = importlib.import_module(f".skills.{skill.stem}", package="voice_assistant.command")
+            module = importlib.import_module(f".skills.{skill.stem}", package="command")
 
             for name, val in module.__dict__.items():
                 if isinstance(val, BaseTool):
@@ -95,6 +95,7 @@ class OllamaCommandProcessor:
                     if "messages" in update[key]:
                         for message in update[key]["messages"]:
                             if isinstance(message, AIMessage):
+                                logger.debug(f"AIMessage: {message.content.strip()}")
                                 yield strip_thinking(message.content)
         except GraphRecursionError as e:
             logger.error(f"Graph recursion error: {e}")

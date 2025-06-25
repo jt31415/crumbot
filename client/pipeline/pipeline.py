@@ -25,9 +25,9 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from playsound import playsound
 
-from .wakeword import OpenWakewordDetector
-from .stt import FasterWhisperBatchedSTT
-from .command import OllamaCommandProcessor
+from wakeword import OpenWakewordDetector
+from stt import FasterWhisperBatchedSTT
+from command import OllamaCommandProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +36,11 @@ CHANNELS = 1
 RATE = 16000
 CHUNK = 1280
 
-WAKEWORD_MODEL = Path(__file__).parent / "wakeword/models/crumbot.onnx"  # Path to the wakeword model
+WAKEWORD_MODEL = "crumbot.onnx"  # Path to the wakeword model
 STT_MODEL = "large-v3-turbo"  # Specify the STT model to use
 LLM_MODEL = "qwen3:1.7b"  # Specify the LLM model to use
 
-MAX_SPEAKING_TIME = 10  # seconds
+MAX_SPEAKING_TIME = 30  # seconds
 INITIAL_PAUSE_TIME = 2  # max seconds to wait for speech after wakeword
 PAUSE_TIME = 1  # seconds
 
@@ -81,7 +81,7 @@ def _mic_callback(in_data, frame_count, time_info, status):
                 # start listening
                 state = AssistantState.WAITING
                 wakeword_time = current_time
-                playsound(os.path.abspath("../res/audio/beep.mp3"), block=False)
+                playsound(str(Path(__file__).parent.parent.parent / "res/audio/beep.mp3"), block=False)
                 logger.info("Wake word detected!")
 
         case AssistantState.WAITING:
@@ -119,7 +119,7 @@ def _mic_callback(in_data, frame_count, time_info, status):
 
                     response = command_processor.process_prompt(transcription)
                     for chunk in response:
-                        logger.info("AI: " + chunk)
+                        if chunk: logger.info("AI: " + chunk)
 
                     logger.info("Done processing.")
             else:
@@ -142,6 +142,8 @@ async def run_mic():
 
     while mic_stream.is_active():
         await asyncio.sleep(0.1)
+
+    logger.info("Mic stream closed...")
 
     mic_stream.stop_stream()
     mic_stream.close()

@@ -1,5 +1,5 @@
 from langchain_core.tools import tool
-from voice_assistant.command.powershell import run_script
+from command.powershell import run_script
 
 @tool
 def launch_minecraft():
