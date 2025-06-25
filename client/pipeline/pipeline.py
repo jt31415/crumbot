@@ -28,6 +28,7 @@ from playsound import playsound
 from wakeword import OpenWakewordDetector
 from stt import FasterWhisperBatchedSTT
 from command import OllamaCommandProcessor
+from tts import KokoroTTS
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ CHUNK = 1280
 WAKEWORD_MODEL = "crumbot.onnx"  # Path to the wakeword model
 STT_MODEL = "large-v3-turbo"  # Specify the STT model to use
 LLM_MODEL = "qwen3:1.7b"  # Specify the LLM model to use
+TTS_VOICE = "bm_george"  # Specify the TTS voice to use
 
 MAX_SPEAKING_TIME = 30  # seconds
 INITIAL_PAUSE_TIME = 2  # max seconds to wait for speech after wakeword
@@ -54,6 +56,7 @@ class AssistantState(Enum):
 wakeword_detector = OpenWakewordDetector(model_path=WAKEWORD_MODEL)
 stt_model = FasterWhisperBatchedSTT(STT_MODEL, device="cuda", compute_type="int8")
 command_processor = OllamaCommandProcessor(LLM_MODEL)
+tts_model = KokoroTTS(TTS_VOICE)
 
 def reset_state():
     """Reset the assistant state and timers."""
@@ -119,7 +122,11 @@ def _mic_callback(in_data, frame_count, time_info, status):
 
                     response = command_processor.process_prompt(transcription)
                     for chunk in response:
-                        if chunk: logger.info("AI: " + chunk)
+                        if not chunk:
+                            continue
+                        logger.info("AI: " + chunk)
+                        tts_model.speak(chunk)
+
 
                     logger.info("Done processing.")
             else:
