@@ -106,8 +106,9 @@ class AudioPlaybackManager:
         self.p.terminate()
 
 class KokoroTTS:
-    def __init__(self, voice: str):
+    def __init__(self, voice: str, speed: float = 1.0):
         self.voice = voice
+        self.speed = speed
         self.pipeline = KPipeline(lang_code="a")
         self.playback_manager = AudioPlaybackManager(rate=24000, format=pyaudio.paInt16, channels=1, chunk_size=1024)
 
@@ -117,7 +118,7 @@ class KokoroTTS:
         
         :param text: The text to convert to speech.
         """
-        generator = self.pipeline(text, voice=self.voice)
+        generator = self.pipeline(text, voice=self.voice, speed=self.speed)
 
         for i, (gs, ps, audio) in enumerate(generator):
             data = float32_to_int16(audio.numpy())

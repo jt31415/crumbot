@@ -1,5 +1,5 @@
-import config
-config.configure_logging()
+from config import logging_config
+logging_config.configure_logging()
 
 import asyncio
 from pipeline.pipeline import run_mic

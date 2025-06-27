@@ -24,6 +24,7 @@ import time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from playsound import playsound
+import tomllib
 
 from wakeword import OpenWakewordDetector
 from stt import FasterWhisperBatchedSTT
@@ -37,14 +38,19 @@ CHANNELS = 1
 RATE = 16000
 CHUNK = 1280
 
-WAKEWORD_MODEL = "crumbot.onnx"  # Path to the wakeword model
-STT_MODEL = "large-v3-turbo"  # Specify the STT model to use
-LLM_MODEL = "qwen3:1.7b"  # Specify the LLM model to use
-TTS_VOICE = "bm_george"  # Specify the TTS voice to use
+config_path = Path(__file__).parent.parent / "config" / "config.toml"
+with open(config_path, "rb") as f:
+    crumbot_config = tomllib.load(f)["crumbot"]
 
-MAX_SPEAKING_TIME = 30  # seconds
-INITIAL_PAUSE_TIME = 2  # max seconds to wait for speech after wakeword
-PAUSE_TIME = 1  # seconds
+WAKEWORD_MODEL = crumbot_config["wakeword_model"]  # Path to the wakeword model
+STT_MODEL = crumbot_config["stt_model"]  # Specify the STT model to use
+LLM_MODEL = crumbot_config["llm_model"]  # Specify the LLM model to use
+TTS_VOICE = crumbot_config["tts_voice"]  # Specify the TTS voice to use
+TTS_SPEED = crumbot_config["tts_speed"]  # Specify the TTS speed
+
+MAX_SPEAKING_TIME = crumbot_config["max_speech_length"]  # seconds
+INITIAL_PAUSE_TIME = crumbot_config["initial_pause_length"]  # max seconds to wait for speech after wakeword
+PAUSE_TIME = crumbot_config["pause_length"]  # seconds
 
 
 class AssistantState(Enum):
@@ -54,9 +60,9 @@ class AssistantState(Enum):
 
 # Pipeline components
 wakeword_detector = OpenWakewordDetector(model_path=WAKEWORD_MODEL)
-stt_model = FasterWhisperBatchedSTT(STT_MODEL, device="cuda", compute_type="int8")
-command_processor = OllamaCommandProcessor(LLM_MODEL)
-tts_model = KokoroTTS(TTS_VOICE)
+stt_model = FasterWhisperBatchedSTT(model_name=STT_MODEL, device="cuda", compute_type="int8")
+command_processor = OllamaCommandProcessor(model_name=LLM_MODEL)
+tts_model = KokoroTTS(voice=TTS_VOICE, speed=TTS_SPEED)
 
 def reset_state():
     """Reset the assistant state and timers."""
@@ -85,6 +91,7 @@ def _mic_callback(in_data, frame_count, time_info, status):
                 state = AssistantState.WAITING
                 wakeword_time = current_time
                 playsound(str(Path(__file__).parent.parent.parent / "res/audio/beep.mp3"), block=False)
+                prompt_audio = audio_data.copy()  # reset prompt audio
                 logger.info("Wake word detected!")
 
         case AssistantState.WAITING:
@@ -92,7 +99,6 @@ def _mic_callback(in_data, frame_count, time_info, status):
                 # start listening to speech
                 state = AssistantState.LISTENING
                 speech_start_time = current_time
-                prompt_audio = audio_data.copy()  # reset prompt audio
                 logger.info("Listening for prompt...")
             elif current_time - wakeword_time > INITIAL_PAUSE_TIME:
                 # reset state if no speech detected after initial pause time
@@ -147,7 +153,7 @@ async def run_mic():
 
     logger.info("Waiting for wake word...")
 
-    while mic_stream.is_active():
+    while True:  #mic_stream.is_active():
         await asyncio.sleep(0.1)
 
     logger.info("Mic stream closed...")

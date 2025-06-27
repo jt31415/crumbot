@@ -47,6 +47,12 @@ def configure_logging():
             #     "level": "DEBUG",
             #     "propagate": False # Prevent propagation to root logger
             # }
+            "httpcore": {
+                "level": "INFO"
+            },
+            "urllib3": {
+                "level": "INFO"
+            }
         },
 
         "root": {
