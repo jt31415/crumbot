@@ -1,3 +1,3 @@
-from .processor import OllamaCommandProcessor
+from .processor import CommandProcessor
 
-__all__ = ["OllamaCommandProcessor"]
+__all__ = ["CommandProcessor"]

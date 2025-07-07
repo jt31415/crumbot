@@ -106,10 +106,10 @@ class AudioPlaybackManager:
         self.p.terminate()
 
 class KokoroTTS:
-    def __init__(self, voice: str, speed: float = 1.0):
+    def __init__(self, voice: str, speed: float = 1.0, **pipeline_kwargs):
         self.voice = voice
         self.speed = speed
-        self.pipeline = KPipeline(lang_code="a")
+        self.pipeline = KPipeline(lang_code="a", repo_id='hexgrad/Kokoro-82M', **pipeline_kwargs)
         self.playback_manager = AudioPlaybackManager(rate=24000, format=pyaudio.paInt16, channels=1, chunk_size=1024)
 
     def speak(self, text: str) -> None:

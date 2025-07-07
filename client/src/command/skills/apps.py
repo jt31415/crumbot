@@ -4,7 +4,7 @@ from command.powershell import run_script
 @tool
 def launch_minecraft():
     """
-    Launches Minecraft.
+    Launches Minecraft. Only call this tool if the user explicitly mentions Minecraft.
     """
     run_script("minecraft.ps1")
     return True

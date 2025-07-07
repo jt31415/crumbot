@@ -1,6 +1,8 @@
 import faster_whisper
 import numpy as np
 
+from utils.audio import int16_to_float32
+
 
 class FasterWhisperBatchedSTT:
     def __init__(self, model_name: str, **model_kwargs):
@@ -31,7 +33,7 @@ class FasterWhisperBatchedSTT:
         """
 
         # BatchedInferencePipeline expects audio data in float format
-        audio_data = audio_data.astype(np.float32) / 32768.0
+        audio_data = int16_to_float32(audio_data)
 
         # Transcribe the audio data using the loaded model
         segments, _ = self.model.transcribe(

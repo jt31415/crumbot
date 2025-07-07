@@ -1,0 +1,42 @@
+[project]
+name = "crumbot-client"
+version = "0.1.0"
+description = "Windows client for Crumbot"
+authors = [
+    {name = "jt31415"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "openwakeword (>=0.6.0,<0.7.0)",
+    "faster-whisper (>=1.1.1,<2.0.0)",
+    "langchain-core (>=0.3.67,<0.4.0)",
+    "langgraph (>=0.5.0,<0.6.0)",
+    "pyaudio (>=0.2.14,<0.3.0)",
+    "kokoro (>=0.9.4,<0.10.0)",
+    "numpy (>=2.3.1,<3.0.0)",
+    "torch (>=2.7.1,<3.0.0)",
+    "torchvision (>=0.22.1,<0.23.0)",
+    "torchaudio (>=2.7.1,<3.0.0)",
+    "langchain-ollama (>=0.3.3,<0.4.0)",
+    "playsound (==1.2.2)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false
+
+[[tool.poetry.source]]
+name = "pytorch-gpu-src"
+url = "https://download.pytorch.org/whl/cu128"
+priority = "explicit"
+
+
+[tool.poetry.dependencies]
+torch = {source = "pytorch-gpu-src"}
+torchvision = {source = "pytorch-gpu-src"}
+torchaudio = {source = "pytorch-gpu-src"}

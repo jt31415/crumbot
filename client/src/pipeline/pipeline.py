@@ -1,4 +1,17 @@
 # https://github.com/SYSTRAN/faster-whisper/issues/1080
+import config
+from tts import KokoroTTS
+from command import CommandProcessor
+from stt import FasterWhisperBatchedSTT
+from wakeword import OpenWakewordDetector
+from playsound import playsound
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+import time
+from enum import Enum
+import numpy as np
+import pyaudio
+import logging
 import sys
 import os
 from pathlib import Path
@@ -16,21 +29,6 @@ for env_var in env_vars:
     os.environ[env_var] = new_value
 
 
-import logging
-import pyaudio
-import numpy as np
-from enum import Enum
-import time
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from playsound import playsound
-import tomllib
-
-from wakeword import OpenWakewordDetector
-from stt import FasterWhisperBatchedSTT
-from command import OllamaCommandProcessor
-from tts import KokoroTTS
-
 logger = logging.getLogger(__name__)
 
 FORMAT = pyaudio.paInt16
@@ -38,9 +36,7 @@ CHANNELS = 1
 RATE = 16000
 CHUNK = 1280
 
-config_path = Path(__file__).parent.parent / "config" / "config.toml"
-with open(config_path, "rb") as f:
-    crumbot_config = tomllib.load(f)["crumbot"]
+crumbot_config = config.get_config()
 
 WAKEWORD_MODEL = crumbot_config["wakeword_model"]  # Path to the wakeword model
 STT_MODEL = crumbot_config["stt_model"]  # Specify the STT model to use
@@ -49,7 +45,8 @@ TTS_VOICE = crumbot_config["tts_voice"]  # Specify the TTS voice to use
 TTS_SPEED = crumbot_config["tts_speed"]  # Specify the TTS speed
 
 MAX_SPEAKING_TIME = crumbot_config["max_speech_length"]  # seconds
-INITIAL_PAUSE_TIME = crumbot_config["initial_pause_length"]  # max seconds to wait for speech after wakeword
+# max seconds to wait for speech after wakeword
+INITIAL_PAUSE_TIME = crumbot_config["initial_pause_length"]
 PAUSE_TIME = crumbot_config["pause_length"]  # seconds
 
 
@@ -58,11 +55,14 @@ class AssistantState(Enum):
     WAITING = "waiting"  # waiting for speech to start
     LISTENING = "listening"  # listening to prompt
 
+
 # Pipeline components
 wakeword_detector = OpenWakewordDetector(model_path=WAKEWORD_MODEL)
-stt_model = FasterWhisperBatchedSTT(model_name=STT_MODEL, device="cuda", compute_type="int8")
-command_processor = OllamaCommandProcessor(model_name=LLM_MODEL)
-tts_model = KokoroTTS(voice=TTS_VOICE, speed=TTS_SPEED)
+stt_model = FasterWhisperBatchedSTT(
+    model_name=STT_MODEL, device="cuda", compute_type="int8")
+command_processor = CommandProcessor(model_name=LLM_MODEL)
+tts_model = KokoroTTS(voice=TTS_VOICE, speed=TTS_SPEED, device="cuda")
+
 
 def reset_state():
     """Reset the assistant state and timers."""
@@ -72,6 +72,7 @@ def reset_state():
     wakeword_time = None
     speech_start_time = None
     pause_start_time = None
+
 
 reset_state()  # Initialize state
 
@@ -90,7 +91,9 @@ def _mic_callback(in_data, frame_count, time_info, status):
                 # start listening
                 state = AssistantState.WAITING
                 wakeword_time = current_time
-                playsound(str(Path(__file__).parent.parent.parent / "res/audio/beep.mp3"), block=False)
+                tts_model.playback_manager.stop_playback()  # stop any ongoing TTS playback
+                playsound(str(Path(__file__).parent.parent.parent /
+                          "res/audio/beep.mp3"), block=False)
                 prompt_audio = audio_data.copy()  # reset prompt audio
                 logger.info("Wake word detected!")
 
@@ -122,7 +125,7 @@ def _mic_callback(in_data, frame_count, time_info, status):
                     # process the speech and reset state
                     logger.info("Pause detected, processing prompt...")
                     reset_state()
-                    
+
                     transcription = stt_model.transcribe(prompt_audio)
                     logger.info("Transcription: " + transcription)
 
@@ -133,13 +136,13 @@ def _mic_callback(in_data, frame_count, time_info, status):
                         logger.info("AI: " + chunk)
                         tts_model.speak(chunk)
 
-
                     logger.info("Done processing.")
             else:
                 # reset pause timer if speech is detected
                 pause_start_time = None
-    
+
     return (in_data, pyaudio.paContinue)
+
 
 async def run_mic():
     """Run the assistant using the mic."""
@@ -148,12 +151,13 @@ async def run_mic():
     loop = asyncio.get_event_loop()
     executor = ThreadPoolExecutor()
 
-    mic_stream = pa.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK, stream_callback=_mic_callback)
+    mic_stream = pa.open(format=FORMAT, channels=CHANNELS, rate=RATE,
+                         input=True, frames_per_buffer=CHUNK, stream_callback=_mic_callback)
     mic_stream.start_stream()
 
     logger.info("Waiting for wake word...")
 
-    while True:  #mic_stream.is_active():
+    while mic_stream.is_active():
         await asyncio.sleep(0.1)
 
     logger.info("Mic stream closed...")
